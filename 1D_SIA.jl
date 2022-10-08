@@ -64,7 +64,7 @@ function glacier_evolution(;
         diffusivity_s[2:end] = avg(diffusivity)
 
         surface_gradient_s = zeros(nx)
-        surface_gradient_s[2:end] = diff1(surface_gradient) ./ dx
+        surface_gradient_s[2:end] = diff1(surface_h) ./ dx
 
         grad_x_diff = surface_gradient_s .* diffusivity_s
         flux_div = diff1(grad_x_diff) ./ dx
@@ -84,8 +84,15 @@ function glacier_evolution(;
     iceflow_prob = ODEProblem(iceflow!,H,tspan,p)
     if solver == nothing
         iceflow_sol = solve(iceflow_prob, 
-                            reltol=1e-7, save_everystep=false, 
-                            progress=true, progress_steps = 10)
+                            alg=Euler(),
+                            #alg=ImplicitMidpoint(autodiff=false), 
+                            #alg=ImplicitEuler(autodiff=false), 
+                            dt=10*sec_in_day,
+                            adaptive=false,
+                            reltol=1e-7, 
+                            save_everystep=false, 
+                            progress=true, 
+                            progress_steps = 10)
     else
         iceflow_sol = solve(iceflow_prob, solver,
                             reltol=1e-6, save_everystep=false, 
@@ -101,14 +108,14 @@ function glacier_evolution(;
 
 end
 
-iceflow_sol = glacier_evolution(dx=100.0,  # grid resolution in m
+@time iceflow_sol = glacier_evolution(dx=100.0,  # grid resolution in m
                                 nx=200,  # grid size
                                 width=600.0,  # glacier width in m
                                 top_h=3000.0,  # bed top altitude
 
                                 bottom_h=1200.0,  # bed bottom altitude
                                 glen_a=2.4e-24,  # ice stiffness
-                                ela_h=2500.0,  # mass balance model Equilibrium Line Altitude
+                                ela_h=2600.0,  # mass balance model Equilibrium Line Altitude
                                 mb_grad=3.0,  # linear mass balance gradient (unit: [mm w.e. yr-1 m-1])
                                 n_years=700.0,  # simulation time in years
                                 solver = nothing
