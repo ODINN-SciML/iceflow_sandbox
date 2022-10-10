@@ -82,7 +82,7 @@ function glacier_evolution_optim(;
             # Ice flux in a staggered grid
             diffusivity_s[2:end] .= avg(diffusivity)
 
-            surface_gradient_s[2:end] .= diff1(surface_gradient) ./ dx
+            surface_gradient_s[2:end] .= diff1(surface_h) ./ dx
 
             grad_x_diff .= surface_gradient_s .* diffusivity_s
             flux_div .= diff1(grad_x_diff) ./ dx
@@ -105,14 +105,8 @@ function glacier_evolution_optim(;
 
              # We can have negative thickness because of MB - correct here
             thick .= ifelse.(new_thick.<0.0, 0.0, new_thick)
-            @show maximum(thick)
-            @show maximum(surface_h)
-            @show maximum(mb)
+            
             @assert !isnan(maximum(thick)) "NaN values!"
-
-            if thick[end] != 0.0
-                @show thick[end-20:end]
-            end
             @assert thick[end] == 0.0 "Glacier exceeding boundaries! at time $(t/sec_in_year)"
 
             # Prepare for next step 
@@ -147,7 +141,7 @@ end
 
 #######  MAIN ########
 
-xc, bed_h, surface_h, years, volume, length = glacier_evolution_optim()
+@time xc, bed_h, surface_h, years, volume, length = glacier_evolution_optim()
 
 # plot(xc, bed_h, color="black", title="Glacier geometry at the end of the simulation", label="Bedrock", ylabel="Elevation (m.a.s.l.)")
 # p_flowline = plot!(xc, surface_h, color="slateblue", label="Ice")
