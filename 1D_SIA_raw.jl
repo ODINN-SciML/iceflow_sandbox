@@ -16,9 +16,9 @@ const glen_n = 3.0
 const ρ = 900.0
 const g = 9.81
 
-@views diff1(A) = (A[2:end] .- A[1:end - 1])
-@views diff2(A) = (A[3:end] .- A[1:end - 2])
-@views avg(A) = (A[2:end] .+ A[1:end - 1])./2.0
+diff1!(O, I, dx) = @views @. O[2:end] = (I[2:end] - I[1:end - 1]) / dx
+diff2!(O, I, dx) = @views @. O[2:end-1] = (I[3:end] - I[1:end - 2]) / dx
+avg!(O, I) = @views @. O[2:end] = (I[2:end] + I[1:end - 1])./2.0
 
 function glacier_evolution_optim(;
     dx=100.0,  # grid resolution in m
@@ -54,7 +54,7 @@ function glacier_evolution_optim(;
     surface_gradient = zeros(nx)
     surface_gradient_s = zeros(nx)
     grad_x_diff = zeros(nx)
-    flux_div = zeros(nx-1)
+    flux_div = zeros(nx)
     mb = zeros(nx-1)
 
     for (i, y) in enumerate(years)
@@ -68,25 +68,25 @@ function glacier_evolution_optim(;
             end
 
             # Surface gradient
-            surface_gradient[2:end-1] .= diff2(surface_h) ./ (2.0*dx)
+            diff2!(surface_gradient, surface_h, 2.0*dx)
 
             # Diffusivity
-            diffusivity .= width * ((ρ*g)^3.0) .* (thick.^3.0) .* surface_gradient.^2.0
-            diffusivity .*= 2.0/(glen_a+2.0) * glen_a .* thick.^2.0
+            diffusivity .= (width * ((ρ*g)^3) .* (thick.^3) .* surface_gradient.^2) 
+            diffusivity .*= 2.0/(glen_a+2.0) * glen_a .* thick.^2
 
             # Ice flux in a staggered grid
-            diffusivity_s[2:end] .= avg(diffusivity)
+            avg!(diffusivity_s, diffusivity)
 
-            surface_gradient_s[2:end] .= diff1(surface_h) ./ dx
+            diff1!(surface_gradient_s, surface_h, dx)
 
             grad_x_diff .= surface_gradient_s .* diffusivity_s
-            flux_div .= diff1(grad_x_diff) ./ dx
+            diff1!(flux_div, grad_x_diff, dx)
 
             # Mass balance
             mb .= get_mb(surface_h[begin:end-1])
 
             # Ice thickness update: old + flux div + mb
-            new_thick[begin:end-1] .= thick[begin:end-1] .+ (dt/width) .* flux_div .+ dt.*mb
+            new_thick[begin:end-1] .= thick[begin:end-1] .+ (dt/width) .* flux_div[2:end] .+ dt.*mb
 
             # We can have negative thickness because of MB - correct here
             thick .= ifelse.(new_thick.<0.0, 0.0, new_thick)
@@ -121,7 +121,7 @@ end
 #######  MAIN ########
 
 # Let's test the performance
-@btime xc, bed_h, surface_h, years, volume, length = glacier_evolution_optim()
+xc, bed_h, surface_h, years, volume, length = @btime glacier_evolution_optim()
 # Plot the results of the simulation
 plot(xc, bed_h, color="black", title="Glacier geometry at the end of the simulation", label="Bedrock", ylabel="Elevation (m.a.s.l.)")
 p_flowline = plot!(xc, surface_h, color="slateblue", label="Ice")
