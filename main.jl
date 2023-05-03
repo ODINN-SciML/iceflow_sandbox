@@ -1,6 +1,6 @@
 include("oggm_access.jl")
-include("1D_SIA_1.jl")
-include("1D_SIA_raw_1.jl")
+include("1D_SIA.jl")
+include("1D_SIA_raw.jl")
 using NCDatasets
 using BenchmarkTools
 
