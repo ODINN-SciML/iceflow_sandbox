@@ -1,7 +1,6 @@
 #%%
 
 # -*- coding: utf-8 -*-
-
 using DifferentialEquations
 
 using Random
@@ -14,6 +13,7 @@ using LinearAlgebra
 using TerminalLoggers: TerminalLogger
 using NetCDF
 using Plots
+include("oggm_access.jl")
 global_logger(TerminalLogger())
 
 
@@ -30,21 +30,27 @@ diff2!(O, I, dx) = @views @. O[2:end-1] = (I[3:end] - I[1:end - 2]) / dx
 avg!(O, I) = @views @. O[2:end] = (I[2:end] + I[1:end - 1])./2.0
 
 function glacier_evolution(;
-    dx,  # grid resolution in m
+    gdir,
+    dx,
     nx,  # grid size e.g 200
     width,  # glacier width in m
     glen_a,  # ice stiffness 2.4e-24
-    ela_h,  # mass balance model Equilibrium Line Altitude 2600
-    mb_grad,  # linear mass balance gradient (unit: [mm w.e. yr-1 m-1])
-    n_years=200.0,  # simulation time in years
-    solver = Ralston(),
+    n_years,  # simulation time in years
+    solver,
+    reltol,
     bed_hs,
     surface_ini
 )
+    
+    mbmod=massbalance.MultipleFlowlineMassBalance(gdir,
+                                                mb_model_class=massbalance.MonthlyTIModel,
+                                                filename="climate_historical")
 
-    function get_mb(heights)
-        mb = (heights .- ela_h) .* mb_grad
-        return mb ./ sec_in_year ./ ρ
+
+
+    function get_mb2(heights,y)
+        mb = mbmod.get_annual_mb(heights, year=y, fl_id=0)
+        return mb 
     end
     
     #bed_hs = collect(LinRange(top_h, bottom_h, nx))
@@ -74,6 +80,7 @@ function glacier_evolution(;
             diffusivity,diffusivity_s,grad_x_diff)
 
     Γ = (2 .* glen_a .* width .* (ρ * g).^glen_n)/(glen_n .+ 2)
+    y=2004
 
     function iceflow!(dH, H, p, t)
         # Retrieve model parameters
@@ -105,7 +112,7 @@ function glacier_evolution(;
         diff1!(flux_div, grad_x_diff, dx)
 
         # Mass balance
-        mb .= get_mb(surface_h[begin:end-1])
+        mb .= get_mb2(surface_h[begin:end-1],y)
 
         
         # # Ice thickness update: old + flux div + mb
@@ -118,8 +125,9 @@ function glacier_evolution(;
 
         surface_h .= bed_hs .+ H
 
+        annee = t ÷ sec_in_year
+        y=2004+annee
 
-        
 
     end
 
@@ -127,9 +135,12 @@ function glacier_evolution(;
 
     iceflow_prob = ODEProblem(iceflow!,H,tspan,p)
 
+    iceflow_sol = solve(iceflow_prob,solver,dt=10*sec_in_day, reltol=reltol,save_everystep=false,dense=false)
+
+   #= 
     if solver == nothing
         iceflow_sol = solve(iceflow_prob,alg=Euler(),#alg=ImplicitMidpoint(autodiff=false), #alg=ImplicitEuler(autodiff=false), 
-                            dt=10*sec_in_day,adaptive=false,reltol=1e-7, save_everystep=false, progress=true, 
+                            dt=10*sec_in_day,reltol=1e-6,adaptive=false, save_everystep=false, progress=true, 
                             progress_steps = 10)
     else
         iceflow_sol = solve(iceflow_prob, solver,reltol=1e-6,dense=false,dt=10*sec_in_day,
@@ -138,23 +149,10 @@ function glacier_evolution(;
 
     #plot(bed_hs, c="brown",label="bed",title="Glacier geometry at the end of the simulation",ylabel="Elevation (m.a.s.l.)")
     #display(plot!(iceflow_sol[end] .+ bed_hs, c="blue",label="surface"))
-
+    =#
     return iceflow_sol
 
     end #let
 
 end
 
-#=
-@time iceflow_sol = glacier_evolution(dx=100.0,  # grid resolution in m
-                                nx=length(ncread("saved_11-00897.nc","bed_h")),  # grid size
-                                width=600.0,  # glacier width in m 
-                                glen_a=2.4e-24,  # ice stiffness
-                                ela_h=2600.0,  # mass balance model Equilibrium Line Altitude
-                                mb_grad=3.0,  # linear mass balance gradient (unit: [mm w.e. yr-1 m-1])
-                                n_years=200.0,  # simulation time in years
-                                solver = nothing,bed_hs=ncread("saved_11-00897.nc","bed_h")
-                                )
-
-=#
-#plot(iceflow_sol.u[end])
