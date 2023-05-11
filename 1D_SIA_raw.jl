@@ -4,6 +4,7 @@
 
 # processes = 10
 # addprocs(processes - nprocs(); exeflags="--project")
+include("oggm_access.jl")
 
 # @everywhere begin
     using Revise, BenchmarkTools
@@ -22,19 +23,22 @@
     avg!(O, I) = @views @. O[2:end] = (I[2:end] + I[1:end - 1])./2.0
     
     function glacier_evolution_optim(;
+        gdir,
         dx,  # grid resolution in m
         nx,  # grid size
         width,  # glacier width in m
         glen_a,  # ice stiffness 2.4e-24
-        ela_h,  # mass balance model Equilibrium Line Altitude 2600
-        mb_grad,  # linear mass balance gradient (unit: [mm w.e. yr-1 m-1])
-        n_years=200,
+        n_years,
         bed_h,
         surface_ini # simulation time in years
+        
     )
-        function get_mb(heights)
-            mb = (heights .- ela_h) .* mb_grad
-            return mb ./ sec_in_year ./ ρ
+
+        mbmod=massbalance.MultipleFlowlineMassBalance(gdir)    
+
+        function get_mb2(heights,y)
+            mb = mbmod.get_annual_mb(heights, year=y, fl_id=0)
+            return mb 
         end
     
         let 
@@ -57,7 +61,7 @@
         grad_x_diff = zeros(nx)
         flux_div = zeros(nx)
         mb = zeros(nx-1)
-    
+        yy=2004
         for (i, y) in enumerate(years)
             let end_t = y * sec_in_year
             # Time integration
@@ -85,7 +89,7 @@
                 diff1!(flux_div, grad_x_diff, dx)
     
                 # Mass balance
-                mb .= get_mb(surface_h[begin:end-1])
+                mb .= get_mb2(surface_h[begin:end-1],yy)
                 # Ice thickness update: old + flux div + mb
                 new_thick[begin:end-1] .= thick[begin:end-1] .+ (dt./width[2:end]) .* flux_div[2:end] .+ dt.*mb
     
@@ -97,6 +101,10 @@
                 # Prepare for next step 
                 surface_h .= bed_h .+ thick
                 t += dt
+
+                annee = t ÷ sec_in_year
+                yy=2004+annee
+
             end
             end # let
     
@@ -109,6 +117,8 @@
     
         return xc, bed_h, surface_h, years, volume, long
         end # let
+
+       
         
     end
     

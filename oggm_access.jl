@@ -1,6 +1,7 @@
 ###############################
 ####  OGGM configuration  #####
 ###############################
+using Distributed
 using BenchmarkTools
 using Distributed
 using PyCall
@@ -16,6 +17,7 @@ xr=PyCall.pyimport("xarray")
 utils=pyimport("oggm.utils")
 os=pyimport("os")
 pd=pyimport("pandas")
+massbalance=pyimport("oggm.core.massbalance")
 
 #oggm_config()
 #Configures the basic paths and parameters for OGGM.
@@ -60,7 +62,7 @@ end
 
 function init_gdirs_scratch(rgi_ids)::Vector{PyObject}
     # Check if some of the gdirs is missing files
-    base_url = "https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L3-L5_files/2023.1/centerlines/W5E5/"
+    base_url = "https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L3-L5_files/2023.1/elev_bands/W5E5/"
     gdirs::Vector{PyObject} = workflow.init_glacier_directories(rgi_ids, prepro_base_url=base_url, 
                                                 from_prepro_level=3, prepro_border=80)
     list_talks = [
