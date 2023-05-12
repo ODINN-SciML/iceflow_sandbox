@@ -78,7 +78,8 @@ function benchmark_setting_gla(rgi)
         @warn "Solver not working. Skipping..."
     end
 
-    iceflow_sol = glacier_evolution(gdir=gdir, dx=dx_o, nx=length(bed_o), width=widths_o,glen_a= 2.4e-24,n_years=15.0,solver = Ralston(),
+    iceflow_sol = glacier_evolution(gdir=gdir, dx=dx_o, nx=length(bed_o), width=widths_o,glen_a= 2.4e-24,
+    n_years=15.0,solver = Ralston(),
     reltol=1e-6,bed_hs=bed_o,surface_ini=surface_o)
 
     plot(bed_o, c="brown",label="bed",title="$gla_name",ylabel="Elevation (m.a.s.l.)")
@@ -91,7 +92,7 @@ function benchmark_setting_gla(rgi)
     ds2=ds.group["fl_$fl_id"]
     plot!(ds2["bed_h"][:,end]+ds2["thickness_m"][:,end],linestyle=:dash,color="black",label="surface oggm")
 
-    savefig("myplot_$gla_nb.png")   
+    savefig("myplot_glen_a_$gla_nb.png")   
 
     GC.gc()
     return ude_benchmark
@@ -118,14 +119,6 @@ save_object("benchmark_gla.jld2",ude_benchmarks)
 
 ### A look at the results ###
 ude = load("benchmark_gla.jld2")
-
-#=
-for ude_benchmark in ude["single_stored_object"]
-    if length(ude_benchmark["ude_settings"]) > 0
-            println(ude_benchmark["ude_settings"][1]["solver"], " - ", ude_benchmark["time_stats"][1].time)
-    end
-end
-=#
 
 n=length(rgi_ids)
 stats = DataFrame(:id => 1:n, :name => rgi_ids, 
