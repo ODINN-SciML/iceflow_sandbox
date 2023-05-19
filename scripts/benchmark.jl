@@ -96,11 +96,11 @@ ude_benchmarks=zeros(length(ude_solvers))
 # Benchmark every solver in parallel
 ude_benchmarks = pmap(ude_solver -> benchmark_setting(ude_solver), ude_solvers) 
                 
-save_object("/data/benchmark.jld2",ude_benchmarks)
+save_object("data/benchmark.jld2",ude_benchmarks)
 
 
 ### A look at the results ###
-ude = load("/data/benchmark.jld2")
+ude = load("data/benchmark.jld2")
 
 #=
 for ude_benchmark in ude["single_stored_object"]
