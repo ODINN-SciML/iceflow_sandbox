@@ -114,11 +114,11 @@ ude_benchmarks=zeros(length(rgi_ids))
 # Benchmark every solver in parallel
 ude_benchmarks = pmap(glacier -> benchmark_setting_gla(glacier), rgi_ids) 
                 
-save_object("benchmark_gla.jld2",ude_benchmarks)
+save_object("/data/benchmark_gla.jld2",ude_benchmarks)
 
 
 ### A look at the results ###
-ude = load("benchmark_gla.jld2")
+ude = load("/data/benchmark_gla.jld2")
 
 n=length(rgi_ids)
 stats = DataFrame(:id => 1:n, :name => rgi_ids, 
