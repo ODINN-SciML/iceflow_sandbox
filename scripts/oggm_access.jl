@@ -1,12 +1,11 @@
 ###############################
 ####  OGGM configuration  #####
 ###############################
-using Distributed
-using BenchmarkTools
-using Distributed
+
+
 using PyCall
 export oggm_config, init_gdirs, PARAMS, PATHS
-using Plots
+functools = PyCall.pyimport("functools")
 oggm=PyCall.pyimport("oggm")
 cfg=PyCall.pyimport("oggm.cfg")
 workflow=PyCall.pyimport("oggm.workflow")
@@ -23,7 +22,6 @@ massbalance=pyimport("oggm.core.massbalance")
 #Configures the basic paths and parameters for OGGM.
 cfg.initialize(logging_level="WARNING") # initialize OGGM configuration
 working_dir=joinpath(homedir(), "Run_oggm")
-processes=2
 global PATHS = PyDict(cfg."PATHS")  # OGGM PATHS
 PATHS["working_dir"] = working_dir # Choose own custom path for the OGGM data
 global PARAMS = PyDict(cfg."PARAMS")
@@ -33,7 +31,8 @@ PARAMS["continue_on_error"] = true # avoid stopping when a task fails for a glac
 PARAMS["store_fl_diagnostics"] = true
 
 # Multiprocessing 
-PARAMS["use_multiprocessing"] =  true 
+PARAMS["mp_processes"] =1
+PARAMS["use_multiprocessing"] =  false
 
 #init_gdirs(rgi_ids; force=false)
 #Initializes Glacier Directories using OGGM. Wrapper function calling `init_gdirs_scratch(rgi_ids)`.

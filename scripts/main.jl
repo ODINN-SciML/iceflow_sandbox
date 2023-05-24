@@ -1,13 +1,26 @@
+
+using Revise
+using Distributed
+using NCDatasets
+using BenchmarkTools
+using Plots
+
+using ProgressMeter
+using OrdinaryDiffEq
+using Statistics: median
+# using AbbreviatedStackTraces
+using Logging: global_logger
+using LinearAlgebra
+using DataFrames
+using TerminalLoggers: TerminalLogger
+global_logger(TerminalLogger())
+
 include("oggm_access.jl")
 include("1D_SIA.jl")
 include("1D_SIA_raw.jl")
-using NCDatasets
-using BenchmarkTools
-using Distributed
-using Plots
 
 #Choose one glacier
-rgi_ids=["RGI60-11.03671"]
+rgi_ids=["RGI60-01.05355"]
 gdirs=init_gdirs(rgi_ids)
 gdir=gdirs[1]
 gla_name=gdir.name
@@ -16,14 +29,6 @@ gla_name=gdir.name
 PARAMS["evolution_model"] = "FluxBased"
 tasks.init_present_time_glacier(gdir)
 
-#=
-f = gdir.get_filepath("fl_diagnostics")
-ds = NCDataset(f)
-fl_id=ds.dim["flowlines"]-1
-ds2=ds.group["fl_$fl_id"]
-bed_oggm=ds2["bed_h"][:]
-surface_t0=bed_oggm .+ ds2["thickness_m"][:,1]
-=#
 
 fls=gdir.read_pickle("model_flowlines")
 bed_o = fls[end].bed_h
@@ -37,48 +42,48 @@ glen_a_o = diag["inversion_glen_a"]
 println(glen_a_o)
 
 
-
+plot(bed_o, c="brown",label="bed",title="$gla_name",ylabel="Elevation (m.a.s.l.)")
 #using the solver
 
-iceflow_sol =@btime glacier_evolution(gdir=gdir, 
+iceflow_sol = glacier_evolution(gdir=gdir, 
                                 dx=dx_o, # grid resolution in m
                                 nx=length(bed_o),  # grid size
                                 width=widths_o,  # glacier width in m 
                                 glen_a= glen_a_o,  # ice stiffness 2.4e-24
-                                n_years=15.0,  # simulation time in years
-                                solver = Ralston(),
+                                n_years=100.0,  # simulation time in years
+                                solver = CKLLSRK54_3C(),
                                 reltol=1e-6,
                                 bed_hs=bed_o,
                                 surface_ini=surface_o)
 
 
 plot(bed_o, c="brown",label="bed",title="$gla_name",ylabel="Elevation (m.a.s.l.)")
-display(plot!(iceflow_sol[end] .+ bed_o, c="blue",label="surface solver"))
+plot!(iceflow_sol[end] .+ bed_o, c="blue",label="surface solver")
 
 #using a numerical scheme ("raw")
 
-xc, bed_h, surface_h, years, volume, long =@btime glacier_evolution_optim(gdir=gdir,
+
+xc, bed_h, surface_h, years, volume, long = glacier_evolution_optim(gdir=gdir,
                                                                     dx=dx_o,nx=length(bed_o),
                                                                     width=widths_o,
-                                                                    glen_a= 2.4e-14,
+                                                                    glen_a= 2.4e-24,
                                                                     bed_h=bed_o,
                                                                     surface_ini=surface_o,
-                                                                    n_years=15.0)
+                                                                    n_years=100.0)
+
 
 
 #Comparing now with oggm
 
-@btime begin 
-workflow.execute_entity_task(tasks.run_from_climate_data, gdir,
-                    climate_filename="climate_historical",
-                    ys=2004, ye=2019,store_fl_diagnostics=true)
-
-end 
 
 
-#plot!(bed_h, color="black",label="Bedrock raw")
-p_flowline = plot!(surface_h, color="red", label="surface raw")
-display(p_flowline)
+#workflow.execute_entity_task(tasks.run_from_climate_data, gdir,climate_filename="climate_historical",ys=2004, ye=2019,store_fl_diagnostics=true)
+workflow.execute_entity_task(tasks.run_random_climate, gdir, y0 = 2003, nyears=100,
+                                seed=1,store_fl_diagnostics=true)
+
+
+
+plot!(surface_h, color="red", label="surface raw")
 plot!(surface_o,color="green",label="surface initiale")
 
 f = gdir.get_filepath("fl_diagnostics")

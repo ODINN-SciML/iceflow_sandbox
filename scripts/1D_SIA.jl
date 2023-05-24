@@ -1,22 +1,5 @@
 #%%
-
 # -*- coding: utf-8 -*-
-using DifferentialEquations
-
-using Random
-using SugarBLAS
-using Statistics: median
-# using AbbreviatedStackTraces
-using Logging: global_logger
-using Revise, BenchmarkTools
-using LinearAlgebra
-using TerminalLoggers: TerminalLogger
-using NetCDF
-using Plots
-include("oggm_access.jl")
-global_logger(TerminalLogger())
-
-
 const sec_in_day = 24.0 * 60.0 * 60.0
 const sec_in_year = sec_in_day * 365.0
 const glen_n = 3.0
@@ -30,30 +13,31 @@ diff2!(O, I, dx) = @views @. O[2:end-1] = (I[3:end] - I[1:end - 2]) / dx
 avg!(O, I) = @views @. O[2:end] = (I[2:end] + I[1:end - 1])./2.0
 
 function glacier_evolution(;
-    gdir,
-    dx,
-    nx,  # grid size e.g 200
-    width,  # glacier width in m
-    glen_a,  # ice stiffness 2.4e-24
-    n_years,  # simulation time in years
-    solver,
-    reltol,
-    bed_hs,
-    surface_ini
-)
+                            gdir,
+                            dx,
+                            nx,  # grid size e.g 200
+                            width,  # glacier width in m
+                            glen_a,  # ice stiffness 2.4e-24
+                            n_years,  # simulation time in years
+                            solver,
+                            reltol,
+                            bed_hs,
+                            surface_ini
+                        )
     
-    mbmod=massbalance.MultipleFlowlineMassBalance(gdir,
-                                                mb_model_class=massbalance.MonthlyTIModel,
-                                                filename="climate_historical")
+    #mbmod=massbalance.MultipleFlowlineMassBalance(gdir,mb_model_class=massbalance.MonthlyTIModel,filename="climate_historical")
 
+
+    mbmod = massbalance.MultipleFlowlineMassBalance(gdir,mb_model_class=functools.partial(massbalance.RandomMassBalance,
+                            mb_model_class=massbalance.MonthlyTIModel),
+                            y0=2003, halfsize=15,bias=0, seed=1,
+                            filename="climate_historical",input_filesuffix="",unique_samples=false)
 
 
     function get_mb2(heights,y)
         mb = mbmod.get_annual_mb(heights, year=y, fl_id=0)
         return mb 
     end
-    
-    #bed_hs = collect(LinRange(top_h, bottom_h, nx))
 
     let
     #surface_h = copy(bed_hs)
@@ -76,16 +60,17 @@ function glacier_evolution(;
     dH=zeros(nx)
 
 
-    p = (nx, dx, width, glen_a, bed_hs, surface_gradient,surface_gradient_s,
-            diffusivity,diffusivity_s,grad_x_diff)
-
     Γ = (2 .* glen_a .* width .* (ρ * g).^glen_n)/(glen_n .+ 2)
-    y=2004
+
+    p = (nx, dx, width, glen_a, bed_hs, surface_gradient,surface_gradient_s,
+            diffusivity,diffusivity_s,grad_x_diff, Γ)
+
+    y=2003
 
     function iceflow!(dH, H, p, t)
         # Retrieve model parameters
         nx, dx, width, glen_a, bed_hs,surface_gradient, surface_gradient_s, diffusivity,
-             diffusivity_s, grad_x_diff= p
+             diffusivity_s, grad_x_diff, Γ= p
 
         # Clip negative ice thickness values
         H .= ifelse.(H.<0.0, 0.0, H)
@@ -104,8 +89,6 @@ function glacier_evolution(;
         #surface_gradient_s[2:end] .= diff1(surface_h) ./ dx
         diff1!(surface_gradient_s, surface_h, dx)
 
-
-
         grad_x_diff .= surface_gradient_s .* diffusivity_s
 
         #flux_div = diff1(grad_x_diff) ./ dx
@@ -120,20 +103,17 @@ function glacier_evolution(;
         # @show median(mb)
         dH[begin:end-1] .= (flux_div[2:end] ./ width[2:end]) .+ mb
 
-
-        
-
         surface_h .= bed_hs .+ H
 
         annee = t ÷ sec_in_year
-        y=2004+annee
+        y=2003+annee
 
 
     end
 
-    tspan = (0.0, n_years*sec_in_year)
+    #tspan = (0.0, n_years*sec_in_year)
 
-    iceflow_prob = ODEProblem(iceflow!,H,tspan,p)
+    iceflow_prob = ODEProblem(iceflow!,H,(0.0, n_years*sec_in_year),p)
 
     iceflow_sol = solve(iceflow_prob,solver,dt=10*sec_in_day, reltol=reltol,save_everystep=false,dense=false)
 

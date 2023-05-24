@@ -4,13 +4,9 @@
 
 # processes = 10
 # addprocs(processes - nprocs(); exeflags="--project")
-include("oggm_access.jl")
 
 # @everywhere begin
-    using Revise, BenchmarkTools
-    using ProgressMeter, Infiltrator
-    using Plots
-    using NetCDF
+
     
     const sec_in_day = 24.0 * 60.0 * 60.0
     const sec_in_year = sec_in_day * 365.0
@@ -34,7 +30,12 @@ include("oggm_access.jl")
         
     )
 
-        mbmod=massbalance.MultipleFlowlineMassBalance(gdir)    
+        mbmod = massbalance.MultipleFlowlineMassBalance(gdir,mb_model_class=functools.partial(massbalance.RandomMassBalance,
+        mb_model_class=massbalance.MonthlyTIModel),
+        y0=2003, halfsize=15,bias=0, seed=1,
+        filename="climate_historical",input_filesuffix="",unique_samples=false)
+
+        #mbmod=massbalance.MultipleFlowlineMassBalance(gdir)    
 
         function get_mb2(heights,y)
             mb = mbmod.get_annual_mb(heights, year=y, fl_id=0)
@@ -61,7 +62,7 @@ include("oggm_access.jl")
         grad_x_diff = zeros(nx)
         flux_div = zeros(nx)
         mb = zeros(nx-1)
-        yy=2004
+        yy=2003
         for (i, y) in enumerate(years)
             let end_t = y * sec_in_year
             # Time integration
@@ -103,7 +104,7 @@ include("oggm_access.jl")
                 t += dt
 
                 annee = t ÷ sec_in_year
-                yy=2004+annee
+                yy=2003+annee
 
             end
             end # let
@@ -121,10 +122,7 @@ include("oggm_access.jl")
        
         
     end
-    
-    function wrapper_grad(grad)
-        return glacier_evolution_optim(mb_grad=grad)
-    end
+
     
     # end # @everywhere
     
