@@ -48,7 +48,7 @@ function bench_solv(setting, gdir, reltol) #to benchmark the different solvers
                                         nx=$bedlength,  # grid size
                                         width=$widths_o,  # glacier width in m 
                                         glen_a= 2.4e-24,  # ice stiffness 2.4e-24
-                                        n_years=2.0,  # simulation time in years
+                                        n_years=100.0,  # simulation time in years
                                         solver = $setting,
                                         reltol=$reltol,
                                         bed_hs=$bed_o,
@@ -58,7 +58,7 @@ function bench_solv(setting, gdir, reltol) #to benchmark the different solvers
     push!(ude_benchmark["time_stats"], t_stats)
 
     #also benchmarking oggm solution
-    t_stats_o =@benchmark workflow.execute_entity_task(tasks.run_random_climate, $gdir, y0 = 2003, nyears=2,seed=1,store_fl_diagnostics=true)
+    t_stats_o =@benchmark workflow.execute_entity_task(tasks.run_random_climate, $gdir, y0 = 2003, nyears=100,seed=1,store_fl_diagnostics=true)
 
             
     push!(ude_benchmark["time_stats_oggm"], t_stats_o)
@@ -87,7 +87,7 @@ function bench_gla(rgi_id,reltol) #to benchmark the solvers on different glacier
     tasks.init_present_time_glacier(gdir)
 
    #Benchmark every solver for one given glacier
-    ude_solvers = [BS3(),OwrenZen3(), Ralston(), RDPK3Sp35(), CKLLSRK54_3C()]
+    ude_solvers =[BS3(),CKLLSRK54_3C(),OwrenZen3(),RDPK3Sp35(),Ralston()] #[BS3(),OwrenZen3(), Ralston(), RDPK3Sp35(), CKLLSRK54_3C()]
 
     ude_benchmarks = pmap(ude_solver -> bench_solv(ude_solver, gdir, reltol), ude_solvers) 
 
@@ -114,26 +114,42 @@ function BenchmarkingAll(filename) #to benchmark all the glaciers from the list 
 
     save(filename, "data", results)
 
-    ude = load(bench_file)
-    ude_solvers_str=["BS3","OwrenZen3","Ralston","RDPK3Sp35","CKLLSRK54_3C"]
+end 
 
-    ng=length(rgi_ids)
-    ns= length(ude_solvers_str)
 
-    #Creating an adequate Dataframe with the results 
-    t_ms=[]
-    t_o =[]
-    mem=[]
-    mem_o=[]
-    for r=1:ng
-        append!(t_ms,[mean(ude["data"][r]["solvers"][1][i]["time_stats"][1]).time*10^(-6) for i =1:ns]) #getting the data in the right order 
-        append!(mem,[mean(ude["data"][r]["solvers"][1][i]["time_stats"][1]).memory*10^(-6) for i =1:ns])
-        append!(t_o,[mean(ude["data"][r]["solvers"][1][i]["time_stats_oggm"][1]).time*10^(-6) for i =1:ns]) 
-        append!(mem_o,[mean(ude["data"][r]["solvers"][1][i]["time_stats_oggm"][1]).memory*10^(-6) for i =1:ns])
+### MAIN ###
+filename= "data/newbench100.jld2"
+BenchmarkingAll(filename)
+
+rgi_ids=["RGI60-11.03638","RGI60-11.03671","RGI60-11.03643","RGI60-11.03674","RGI60-11.03756", #Argentière, Gébroulaz, Mer de Glace,St-Sorlin, Sarennes
+    "RGI60-16.00543","RGI60-16.01339", #Zongo, Antizana
+    "RGI60-11.03232", #Ossoue
+    "RGI60-15.03591", #Mera
+    "RGI60-11.03646",
+    "RGI60-14.07524", #Siachen
+    "RGI60-01.05355"] #Alexander (Alaska)
+
+ude = load(filename)
+#ude_solvers_str=["BS3","OwrenZen3","Ralston","RDPK3Sp35","CKLLSRK54_3C"]
+ude_solvers_str=["BS3","CKLLSRK54_3C","OwrenZen3","RDPK3Sp35","Ralston"]
+
+ng=length(rgi_ids)
+ns= length(ude_solvers_str)
+
+#Creating an adequate Dataframe with the results 
+t_ms=[]
+t_o =[]
+mem=[]
+mem_o=[]
+for r=1:ng
+    append!(t_ms,[mean(ude["data"][r]["solvers"][1][i]["time_stats"][1]).time*10^(-6) for i =1:ns]) #getting the data in the right order 
+    append!(mem,[mean(ude["data"][r]["solvers"][1][i]["time_stats"][1]).memory*10^(-6) for i =1:ns])
+    append!(t_o,[mean(ude["data"][r]["solvers"][1][i]["time_stats_oggm"][1]).time*10^(-6) for i =1:ns]) 
+    append!(mem_o,[mean(ude["data"][r]["solvers"][1][i]["time_stats_oggm"][1]).memory*10^(-6) for i =1:ns])
         
-    end 
+end 
 
-    df=DataFrame(:id => repeat(rgi_ids,inner=ns),
+df=DataFrame(:id => repeat(rgi_ids,inner=ns),
                     :solv_name => repeat(ude_solvers_str,outer=ng),
                     :t_ms => t_ms,
                     :t_oggm_ms => t_o,
@@ -141,34 +157,32 @@ function BenchmarkingAll(filename) #to benchmark all the glaciers from the list 
                     :memory_oggm_MiB => mem_o )
 
     # Plotting 
-    m_oggm = round(median(df[:,:t_oggm_ms]),digits=1)
-    df_group = groupby(df,:solv_name)
-    label_solvers=ude_solvers_str
-    for k=1:ns
-        med = round(median(df_group[k][:,:t_ms]),digits=1)
-        label_solvers[k] = ude_solvers_str[k]*" (median = $med ms)"
-    end 
+m_oggm = round(median(df[:,:t_oggm_ms]),digits=1)
+df_group = groupby(df,:solv_name)
+label_solvers=ude_solvers_str
+for k=1:ns
+    med = round(median(df_group[k][:,:t_ms]),digits=1)
+    label_solvers[k] = ude_solvers_str[k]*" (median = $med ms)"
+end 
+using CategoricalArrays 
+df.solv_name = categorical(df.solv_name)
 
+category_colors = [:red :blue :orange :green :pink]
 
-    gr(bg = :ghostwhite)
-    @df df scatter(:id,:t_ms,group=:solv_name,size=(850, 750),title="Benchmarking solvers on 12 glaciers (glen A calibrated)",
+gr(bg = :ghostwhite)
+@df df scatter(:id,:t_ms,group=:solv_name,size=(850, 750),title="Benchmarking solvers on 12 glaciers (glen A = 2.4e-24)",
                                             xlabel="RGI ID",xrotation=90,xtickfont=8, ylabel ="time [ms]",yscale=:log10,
-                                            ylimits=(10,20000),minorgrid=true,legend=:bottom, legendcolumns=2,
-                                            label=reshape(label_solvers, 1, :),legendfontsize=7,
-                                                markershape=:circle,ma=0.9,markerstrokecolor = :white,palette=:Paired_9,ms=5)
+                                            ylimits=(10,20000),minorgrid=true,
+                                            label=reshape(label_solvers, 1, :),legendfontsize=7,palette=:Paired_9,
+                                                markershape=:circle,ma=0.9,markerstrokecolor = :white,ms=5) #palette=cgrad(:matter, 5, categorical = true)
 
 
-    df_group_o = groupby(df,:id)
-    df_t_o=[]
-    for l=1:ng
-        med = round(median(df_group_o[l][:,:t_oggm_ms]),digits=1)
-        append!(df_t_o,med)
-    end 
-
-    scatter!(rgi_ids, df_t_o,markershape=:cross,ma=0.9,markerstrokecolor = :white,label="OGGM (median = $m_oggm ms)",
-                            palette=:Paired_9,ms=5)
-
-
-
+df_group_o = groupby(df,:id)
+df_t_o=[]
+for l=1:ng
+    med = round(median(df_group_o[l][:,:t_oggm_ms]),digits=1)
+    append!(df_t_o,med)
 end 
 
+scatter!(rgi_ids, df_t_o,markershape=:cross,ma=0.9,markerstrokecolor = :white,label="OGGM (median = $m_oggm ms)",
+                            ms=5,markerclor=:red)
