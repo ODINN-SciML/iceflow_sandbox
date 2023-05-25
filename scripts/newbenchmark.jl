@@ -14,6 +14,7 @@ using DataFrames
 using TerminalLoggers: TerminalLogger
 using Plots 
 using StatsPlots
+using CategoricalArrays 
 global_logger(TerminalLogger())
 
 include("oggm_access.jl")
@@ -164,7 +165,7 @@ for k=1:ns
     med = round(median(df_group[k][:,:t_ms]),digits=1)
     label_solvers[k] = ude_solvers_str[k]*" (median = $med ms)"
 end 
-using CategoricalArrays 
+
 df.solv_name = categorical(df.solv_name)
 
 category_colors = [:red :blue :orange :green :pink]
