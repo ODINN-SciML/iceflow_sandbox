@@ -6,7 +6,7 @@ Useful informations for glaciers :
 4 = "RGI60-11.03674" #St-Sorlin\
 5 = "RGI60-11.03756" #Sarennes\
 6 = "RGI60-16.00543" #Zongo (Andes)\
-7 = "RGI60-16.01339" #Antizane (Andes)\ 
+7 = "RGI60-16.01339" #Antizane (Andes)\
 8 = "RGI60-11.03232" #Ossoue (Pyrenees)\
 9 = "RGI60-15.03591" #Mera (Himalaya)\
 10 = "RGI60-11.03646" #Bossons\
