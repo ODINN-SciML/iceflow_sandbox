@@ -5,6 +5,8 @@
 
 using PyCall
 export oggm_config, init_gdirs, PARAMS, PATHS
+
+#Importing all python necessary packages 
 functools = PyCall.pyimport("functools")
 oggm=PyCall.pyimport("oggm")
 cfg=PyCall.pyimport("oggm.cfg")
@@ -20,10 +22,12 @@ massbalance=pyimport("oggm.core.massbalance")
 
 #oggm_config()
 #Configures the basic paths and parameters for OGGM.
-cfg.initialize(logging_level="WARNING") # initialize OGGM configuration
+cfg.initialize(logging_level="WARNING") 
+# OGGM PATHS
 working_dir=joinpath(homedir(), "Run_oggm")
-global PATHS = PyDict(cfg."PATHS")  # OGGM PATHS
-PATHS["working_dir"] = working_dir # Choose own custom path for the OGGM data
+global PATHS = PyDict(cfg."PATHS")  
+# Choose own custom path for the OGGM data
+PATHS["working_dir"] = working_dir 
 global PARAMS = PyDict(cfg."PARAMS")
 PARAMS["hydro_month_nh"]=1
 PARAMS["dl_verify"] = false
@@ -34,8 +38,8 @@ PARAMS["store_fl_diagnostics"] = true
 PARAMS["mp_processes"] =1
 PARAMS["use_multiprocessing"] =  false
 
-#init_gdirs(rgi_ids; force=false)
-#Initializes Glacier Directories using OGGM. Wrapper function calling `init_gdirs_scratch(rgi_ids)`.
+
+#Initializes Glacier Directories using OGGM. 
 
 function init_gdirs(rgi_ids)::Vector{PyObject}
     # Try to retrieve glacier gdirs if they are available

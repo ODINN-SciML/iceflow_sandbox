@@ -1,3 +1,9 @@
+###################################################################
+#### This script defines and runs functions useful to benchmark ####
+#### various Julia solver on a set of 12 different glaciers    ####
+###################################################################
+
+
 using Revise
 using Distributed
 using ProgressMeter
@@ -23,18 +29,23 @@ include("1D_SIA_raw.jl")
 
 
 ### FUNCTIONS ### 
+
 function bench_solv(setting, gdir, reltol) #to benchmark the different solvers
 
-    fls=gdir.read_pickle("model_flowlines")
-    bed_o = fls[end].bed_h
-    surface_o = fls[end].surface_h
-    widths_o = fls[end].widths_m
-    dx_o = fls[end].dx_meter
+    fls::PyObject = gdir.read_pickle("model_flowlines")
+    bed_o::Vector{Float64} = fls[end].bed_h
+    surface_o::Vector{Float64} = fls[end].surface_h
+    widths_o::Vector{Float64} = fls[end].widths_m
+    dx_o::Float64 = fls[end].dx_meter
 
-    bedlength = length(bed_o)
+    nx_o = length(bed_o)
 
     diag = gdir.get_diagnostics()
     glen_a_o = diag["inversion_glen_a"]
+
+    n_years=100.0
+    tspan = (0.0, n_years*sec_in_year)
+    y0=2003.0
 
     ude_benchmark = Dict("ude_settings"=>[], "time_stats"=>[],"time_stats_oggm"=>[])
 
@@ -46,14 +57,16 @@ function bench_solv(setting, gdir, reltol) #to benchmark the different solvers
            
     t_stats = @benchmark glacier_evolution(gdir=$gdir, 
                                         dx=$dx_o, # grid resolution in m
-                                        nx=$bedlength,  # grid size
+                                        nx=$nx_o,  # grid size
                                         width=$widths_o,  # glacier width in m 
-                                        glen_a= 2.4e-24,  # ice stiffness 2.4e-24
-                                        n_years=100.0,  # simulation time in years
+                                        glen_a=$glen_a_o,  # ice stiffness 2.4e-24
                                         solver = $setting,
                                         reltol=$reltol,
                                         bed_hs=$bed_o,
-                                        surface_ini=$surface_o)
+                                        surface_ini=$surface_o,
+                                        y0=$y0,
+                                        tspan=$tspan)
+
 
     # Save stats for each solver
     push!(ude_benchmark["time_stats"], t_stats)
@@ -64,12 +77,6 @@ function bench_solv(setting, gdir, reltol) #to benchmark the different solvers
             
     push!(ude_benchmark["time_stats_oggm"], t_stats_o)
 
-    #=
-    catch error
-        println("ERROR: ", error)
-        @warn "Solver not working. Skipping..."
-    end
-    =#
 
     GC.gc()
     return ude_benchmark
@@ -84,7 +91,7 @@ function bench_gla(rgi_id,reltol) #to benchmark the solvers on different glacier
     gdirs=init_gdirs(rgi)
     gdir=gdirs[1]
 
-    PARAMS["evolution_model"] = "FluxBased"
+    PARAMS["evolution_model"] = "SemiImplicit"
     tasks.init_present_time_glacier(gdir)
 
    #Benchmark every solver for one given glacier
@@ -110,7 +117,7 @@ function BenchmarkingAll(filename) #to benchmark all the glaciers from the list 
     "RGI60-11.03646",
     "RGI60-14.07524", #Siachen
     "RGI60-01.05355"] #Alexander (Alaska)
-    reltol = 1e-6
+    reltol = 1e-8
     results = pmap(r -> bench_gla(r,reltol), rgi_ids)
 
     save(filename, "data", results)
@@ -119,8 +126,8 @@ end
 
 
 ### MAIN ###
-filename= "data/newbench100.jld2"
-BenchmarkingAll(filename)
+filename= "data/benchmark100y_glena_reltol-8_semiimp.jld2"
+#BenchmarkingAll(filename)
 
 rgi_ids=["RGI60-11.03638","RGI60-11.03671","RGI60-11.03643","RGI60-11.03674","RGI60-11.03756", #Argentière, Gébroulaz, Mer de Glace,St-Sorlin, Sarennes
     "RGI60-16.00543","RGI60-16.01339", #Zongo, Antizana
@@ -131,7 +138,6 @@ rgi_ids=["RGI60-11.03638","RGI60-11.03671","RGI60-11.03643","RGI60-11.03674","RG
     "RGI60-01.05355"] #Alexander (Alaska)
 
 ude = load(filename)
-#ude_solvers_str=["BS3","OwrenZen3","Ralston","RDPK3Sp35","CKLLSRK54_3C"]
 ude_solvers_str=["BS3","CKLLSRK54_3C","OwrenZen3","RDPK3Sp35","Ralston"]
 
 ng=length(rgi_ids)
@@ -157,7 +163,7 @@ df=DataFrame(:id => repeat(rgi_ids,inner=ns),
                     :memory_MiB => mem,
                     :memory_oggm_MiB => mem_o )
 
-    # Plotting 
+### Plotting 
 m_oggm = round(median(df[:,:t_oggm_ms]),digits=1)
 df_group = groupby(df,:solv_name)
 label_solvers=ude_solvers_str
@@ -168,12 +174,10 @@ end
 
 df.solv_name = categorical(df.solv_name)
 
-category_colors = [:red :blue :orange :green :pink]
-
 gr(bg = :ghostwhite)
-@df df scatter(:id,:t_ms,group=:solv_name,size=(850, 750),title="Benchmarking solvers on 12 glaciers (glen A = 2.4e-24)",
+@df df scatter(:id,:t_ms,group=:solv_name,size=(850, 750),title="Benchmarking solvers on 12 glaciers (glen A calibrated)",
                                             xlabel="RGI ID",xrotation=90,xtickfont=8, ylabel ="time [ms]",yscale=:log10,
-                                            ylimits=(10,20000),minorgrid=true,
+                                            ylimits=(10,10000),minorgrid=true,legend=:top, legendcolumns=2,
                                             label=reshape(label_solvers, 1, :),legendfontsize=7,palette=:Paired_9,
                                                 markershape=:circle,ma=0.9,markerstrokecolor = :white,ms=5) #palette=cgrad(:matter, 5, categorical = true)
 
@@ -187,3 +191,4 @@ end
 
 scatter!(rgi_ids, df_t_o,markershape=:cross,ma=0.9,markerstrokecolor = :white,label="OGGM (median = $m_oggm ms)",
                             ms=5,markerclor=:red)
+
