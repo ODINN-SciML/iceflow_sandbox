@@ -1,5 +1,12 @@
-# iceflow_sandbox
-Ice flow model experiments for OGGM-ODINN 
+# ODINN.jl iceflow sandbox
+
+Ice flow model experiments for OGGM-ODINN. Currently under development by Lucille Gimenes.
+
+Current developments:
+
+Accelerating ice flow simulations in OGGM with Julia
+- Coupling a 1D Shallow Ice Approximation model in Julia to OGGM.
+- Coupling a 2D Shallow Ice Approximation from ODINN.jl to OGGM.
 
 At the moment, the options available are :
 - Retrieve flowline parameters and mass balance (for a random climate) from OGGM, to then solve the Shallow Ice Approximation (SIA) equation on the glacier flowline in Julia. 
@@ -18,9 +25,7 @@ The function `glacier_evolution` implemented in `1D_SIA.jl` solves the SIA equat
 
 To find which solver was the most efficient, a benchmark was conducted on 12 different glaciers (in `benchmark.jl`)
 
-
 <center><img src="https://github.com/lucillegimenes/iceflow_sandbox/blob/main/plots_rgi_ids/benchmark100y_glena_reltol-8.png" width="700"></center>
 
 It appears that the RDPK3Sp35() solver ("5-stage, third order low-storage scheme with embedded error estimator, optimized for compressible fluid mechanics")
-is the most efficient solver, being overall 12 times quicker than the OGGM ice flow model. 
-
+is the most efficient solver, being on average (for now) 12 times faster than the OGGM ice flow model. 
