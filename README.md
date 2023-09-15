@@ -33,7 +33,7 @@ The new OGGM class (available in the forked repository of OGGM on this user prof
 
 To find which solver was the most efficient, a benchmark was conducted on 12 different glaciers (see notebook Benchmark_from_OGGM)
 
-<center><img src="https://github.com/lucillegimenes/iceflow_sandbox/blob/main/plots/OGGM_benchmarks/random_300y.png" width="900"></center>
+<center><img src="https://github.com/lucillegimenes/iceflow_sandbox/blob/main/plots/OGGM_benchmarks/random_300y_20r.png" width="900"></center>
 
 > Benchmark conducted with saving annual variables, as well as model geometry and flowline diagnostic variables.
 
@@ -42,9 +42,9 @@ is the most efficient solver.
 
 ### Assessment of the new model SIA1D with climate experiment 
 
-<center><img src="https://github.com/lucillegimenes/iceflow_sandbox/blob/main/plots/OGGM_plots/Experiments/khumbu_exp_sinus_spin_up.png" width="800"></center>
+<center><img src="https://github.com/lucillegimenes/iceflow_sandbox/blob/main/plots/OGGM_plots/Experiments/sinus/khumbu_exp_sinus_spin_up_20r_length.png" width="800"></center>
 
-> Evolution of volume, area and minimal elevation of glacier RGI60-15.03733 (also called Khumbu) under experimental sinusoidal climate represented in bottom subplot.
+> Evolution of volume, area and length of glacier RGI60-15.03733 (also called Khumbu) under experimental sinusoidal climate represented in bottom subplot.
 
 ## In this repository, you will find : 
 
